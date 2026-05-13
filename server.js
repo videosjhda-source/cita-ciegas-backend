@@ -29,9 +29,9 @@ io.on('connection', (socket) => {
   console.log(`[Connect] Usuario ${userId} (${gender}) conectado. Socket ID: ${socket.id}`);
   
   // Agregar a la cola de emparejamiento solo si viene de la Sala de Espera
-  const { isQueue } = socket.handshake.auth;
+  const { isQueue, targetUserId } = socket.handshake.auth;
   if (isQueue) {
-    joinQueue(socket, userId, gender, io);
+    joinQueue(socket, userId, gender, io, targetUserId);
   } else {
     console.log(`[Queue] Usuario ${userId} conectado para chat (saltando cola)`);
   }
