@@ -9,9 +9,10 @@ let isGateOpen = false; // Bandera para saber si ya se superó la masa crítica 
 const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos la primera vez
 
 const broadcastQueueStatus = (io) => {
-  // Falsificamos los números para pruebas: parecerá que casi se alcanza la masa crítica
-  const displayMen = isGateOpen ? REQUIRED_MASS : (waitingMen.length > 0 ? REQUIRED_MASS - 1 : REQUIRED_MASS - 5);
-  const displayWomen = isGateOpen ? REQUIRED_MASS : (waitingWomen.length > 0 ? REQUIRED_MASS - 1 : REQUIRED_MASS - 4);
+  // Siempre mostramos 19/20 en ambos contadores cuando la puerta está cerrada,
+  // para dar la ilusión de que "solo falta 1 persona" y generar urgencia.
+  const displayMen = isGateOpen ? REQUIRED_MASS : REQUIRED_MASS - 1;
+  const displayWomen = isGateOpen ? REQUIRED_MASS : REQUIRED_MASS - 1;
 
   io.emit('queue_status', {
     men: displayMen,
