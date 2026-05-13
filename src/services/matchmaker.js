@@ -4,18 +4,15 @@ const { createRoom } = require('./chatEngine');
 // Colas en memoria
 let waitingMen = [];
 let waitingWomen = [];
-let isGateOpen = false; // Bandera para saber si ya se superó la masa crítica inicial
 
-const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos la primera vez
+const REQUIRED_MASS = 2; // Solo se necesita 1 hombre y 1 mujer
 
 const broadcastQueueStatus = (io) => {
-  // Mostramos la realidad para evitar confusión durante las pruebas
-  // Pero mantenemos la bandera isGateOpen para la UI
   io.emit('queue_status', {
     men: waitingMen.length,
     women: waitingWomen.length,
-    required: REQUIRED_MASS,
-    isGateOpen
+    required: 1, // Mostramos que se necesita 1 de cada uno
+    isGateOpen: true // Siempre "abierto"
   });
 };
 
@@ -66,15 +63,6 @@ const attemptMatch = (io) => {
   }
 
   // 2. EMPAREJAMIENTO NORMAL POR GÉNERO
-  if (!isGateOpen) {
-    if (waitingMen.length >= 1 && waitingWomen.length >= 1) {
-      isGateOpen = true;
-      console.log('[Matchmaker] ¡Puertas abiertas! Iniciando emparejamientos.');
-    } else {
-      return;
-    }
-  }
-
   while (waitingMen.length > 0 && waitingWomen.length > 0) {
     const man = waitingMen.shift();
     const woman = waitingWomen.shift();
