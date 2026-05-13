@@ -9,20 +9,21 @@ let isGateOpen = false; // Bandera para saber si ya se superó la masa crítica 
 const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos la primera vez
 
 const broadcastQueueStatus = (io) => {
-  // Siempre mostramos 19/20 en ambos contadores cuando la puerta está cerrada,
-  // para dar la ilusión de que "solo falta 1 persona" y generar urgencia.
-  const displayMen = isGateOpen ? REQUIRED_MASS : REQUIRED_MASS - 1;
-  const displayWomen = isGateOpen ? REQUIRED_MASS : REQUIRED_MASS - 1;
-
+  // Mostramos la realidad para evitar confusión durante las pruebas
+  // Pero mantenemos la bandera isGateOpen para la UI
   io.emit('queue_status', {
-    men: displayMen,
-    women: displayWomen,
+    men: waitingMen.length,
+    women: waitingWomen.length,
     required: REQUIRED_MASS,
     isGateOpen
   });
 };
 
 const joinQueue = (socket, userId, gender, io) => {
+  // Limpiar cualquier conexión previa de este usuario en las colas (evita duplicados)
+  waitingMen = waitingMen.filter(u => u.userId !== userId);
+  waitingWomen = waitingWomen.filter(u => u.userId !== userId);
+
   const userObj = { socket, userId, gender };
 
   if (gender === 'male') {
@@ -31,28 +32,31 @@ const joinQueue = (socket, userId, gender, io) => {
     waitingWomen.push(userObj);
   }
 
-  console.log(`[Matchmaker] Colas -> Hombres: ${waitingMen.length} | Mujeres: ${waitingWomen.length} | Puerta Abierta: ${isGateOpen}`);
-  broadcastQueueStatus(io);
+  console.log(`[Matchmaker] + ${userId} (${gender}) entró a la cola. Hombres: ${waitingMen.length} | Mujeres: ${waitingWomen.length}`);
+  
+  // Primero intentamos emparejar
   attemptMatch(io);
+  // Luego informamos el estado (que puede haber cambiado tras el match)
+  broadcastQueueStatus(io);
 };
 
 const attemptMatch = (io) => {
-  // Si la puerta aún está cerrada, verificamos si ya se alcanzó la masa crítica
+  // En modo pruebas, la puerta se abre si hay al menos 1 de cada uno
   if (!isGateOpen) {
-    // MODO PRUEBAS: Reducimos la masa crítica real a 1 y 1 para probar rápidamente
     if (waitingMen.length >= 1 && waitingWomen.length >= 1) {
-      isGateOpen = true; // Se abre la puerta permanentemente
-      console.log('[Matchmaker] ¡Masa crítica simulada alcanzada (1 y 1)! Puertas abiertas permanentemente.');
+      isGateOpen = true;
+      console.log('[Matchmaker] ¡Puertas abiertas! Iniciando emparejamientos.');
     } else {
-      return; // Aún no hay suficientes para la primera oleada
+      return;
     }
   }
 
-  // Si llegamos aquí, la puerta está abierta. Emparejar de a 1 en 1 a todos los posibles.
+  // Emparejar mientras haya gente de ambos géneros
   while (waitingMen.length > 0 && waitingWomen.length > 0) {
     const man = waitingMen.shift();
     const woman = waitingWomen.shift();
 
+    // Verificar si siguen conectados antes de emparejar
     if (!man.socket.connected) {
       waitingWomen.unshift(woman);
       continue;
@@ -66,14 +70,12 @@ const attemptMatch = (io) => {
     man.socket.join(roomId);
     woman.socket.join(roomId);
 
-    console.log(`[Matchmaker] Match exitoso: ${man.userId} y ${woman.userId} -> Sala: ${roomId}`);
+    console.log(`[Matchmaker] MATCH: ${man.userId} ❤️ ${woman.userId} -> ${roomId}`);
     createRoom(roomId, man.userId, woman.userId);
 
     man.socket.emit('match_found', { roomId, partnerGender: 'female' });
     woman.socket.emit('match_found', { roomId, partnerGender: 'male' });
   }
-
-  broadcastQueueStatus(io);
 };
 
 const leaveQueue = (userId, io) => {
