@@ -4,14 +4,16 @@ const { createRoom } = require('./chatEngine');
 // Colas en memoria
 let waitingMen = [];
 let waitingWomen = [];
+let isGateOpen = false; // Bandera para saber si ya se superó la masa crítica inicial
 
-const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos
+const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos la primera vez
 
 const broadcastQueueStatus = (io) => {
   io.emit('queue_status', {
     men: waitingMen.length,
     women: waitingWomen.length,
-    required: REQUIRED_MASS
+    required: REQUIRED_MASS,
+    isGateOpen
   });
 };
 
@@ -24,18 +26,23 @@ const joinQueue = (socket, userId, gender, io) => {
     waitingWomen.push(userObj);
   }
 
-  console.log(`[Matchmaker] Colas -> Hombres: ${waitingMen.length} | Mujeres: ${waitingWomen.length}`);
+  console.log(`[Matchmaker] Colas -> Hombres: ${waitingMen.length} | Mujeres: ${waitingWomen.length} | Puerta Abierta: ${isGateOpen}`);
   broadcastQueueStatus(io);
   attemptMatch(io);
 };
 
 const attemptMatch = (io) => {
-  // Solo iniciar si ambas colas han alcanzado la masa crítica de 50
-  if (waitingMen.length < REQUIRED_MASS || waitingWomen.length < REQUIRED_MASS) {
-    return;
+  // Si la puerta aún está cerrada, verificamos si ya se alcanzó la masa crítica
+  if (!isGateOpen) {
+    if (waitingMen.length >= REQUIRED_MASS && waitingWomen.length >= REQUIRED_MASS) {
+      isGateOpen = true; // Se abre la puerta permanentemente
+      console.log('[Matchmaker] ¡Masa crítica alcanzada! Puertas abiertas permanentemente.');
+    } else {
+      return; // Aún no hay suficientes para la primera oleada
+    }
   }
 
-  // Emparejar a todos los posibles
+  // Si llegamos aquí, la puerta está abierta. Emparejar de a 1 en 1 a todos los posibles.
   while (waitingMen.length > 0 && waitingWomen.length > 0) {
     const man = waitingMen.shift();
     const woman = waitingWomen.shift();
