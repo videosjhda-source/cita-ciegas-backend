@@ -103,8 +103,8 @@ const executeMatch = (user1, user2, io) => {
   console.log(`[Matchmaker] MATCH: ${user1.userId} ❤️ ${user2.userId} -> ${roomId}`);
   createRoom(roomId, user1.userId, user2.userId);
 
-  user1.socket.emit('match_found', { roomId, partnerGender: user2.gender, partnerArea: user2.area });
-  user2.socket.emit('match_found', { roomId, partnerGender: user1.gender, partnerArea: user1.area });
+  user1.socket.emit('match_found', { roomId, partnerGender: user2.gender, partnerArea: user2.area, partnerUserId: user2.userId });
+  user2.socket.emit('match_found', { roomId, partnerGender: user1.gender, partnerArea: user1.area, partnerUserId: user1.userId });
 };
 
 const leaveQueue = (userId, io) => {
