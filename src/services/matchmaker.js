@@ -9,9 +9,13 @@ let isGateOpen = false; // Bandera para saber si ya se superó la masa crítica 
 const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos la primera vez
 
 const broadcastQueueStatus = (io) => {
+  // Falsificamos los números para pruebas: parecerá que casi se alcanza la masa crítica
+  const displayMen = isGateOpen ? REQUIRED_MASS : (waitingMen.length > 0 ? REQUIRED_MASS - 1 : REQUIRED_MASS - 5);
+  const displayWomen = isGateOpen ? REQUIRED_MASS : (waitingWomen.length > 0 ? REQUIRED_MASS - 1 : REQUIRED_MASS - 4);
+
   io.emit('queue_status', {
-    men: waitingMen.length,
-    women: waitingWomen.length,
+    men: displayMen,
+    women: displayWomen,
     required: REQUIRED_MASS,
     isGateOpen
   });
@@ -19,7 +23,7 @@ const broadcastQueueStatus = (io) => {
 
 const joinQueue = (socket, userId, gender, io) => {
   const userObj = { socket, userId, gender };
-  
+
   if (gender === 'male') {
     waitingMen.push(userObj);
   } else {
@@ -34,9 +38,10 @@ const joinQueue = (socket, userId, gender, io) => {
 const attemptMatch = (io) => {
   // Si la puerta aún está cerrada, verificamos si ya se alcanzó la masa crítica
   if (!isGateOpen) {
-    if (waitingMen.length >= REQUIRED_MASS && waitingWomen.length >= REQUIRED_MASS) {
+    // MODO PRUEBAS: Reducimos la masa crítica real a 1 y 1 para probar rápidamente
+    if (waitingMen.length >= 1 && waitingWomen.length >= 1) {
       isGateOpen = true; // Se abre la puerta permanentemente
-      console.log('[Matchmaker] ¡Masa crítica alcanzada! Puertas abiertas permanentemente.');
+      console.log('[Matchmaker] ¡Masa crítica simulada alcanzada (1 y 1)! Puertas abiertas permanentemente.');
     } else {
       return; // Aún no hay suficientes para la primera oleada
     }
@@ -46,7 +51,7 @@ const attemptMatch = (io) => {
   while (waitingMen.length > 0 && waitingWomen.length > 0) {
     const man = waitingMen.shift();
     const woman = waitingWomen.shift();
-    
+
     if (!man.socket.connected) {
       waitingWomen.unshift(woman);
       continue;
@@ -66,7 +71,7 @@ const attemptMatch = (io) => {
     man.socket.emit('match_found', { roomId, partnerGender: 'female' });
     woman.socket.emit('match_found', { roomId, partnerGender: 'male' });
   }
-  
+
   broadcastQueueStatus(io);
 };
 
