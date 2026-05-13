@@ -4,16 +4,24 @@ const { createRoom } = require('./chatEngine');
 // Colas en memoria
 let waitingMen = [];
 let waitingWomen = [];
-
-const REQUIRED_MASS = 2; // Solo se necesita 1 hombre y 1 mujer
+let totalHistoricalUsers = 0; // Contador total de ingresos
 
 const broadcastQueueStatus = (io) => {
   io.emit('queue_status', {
     men: waitingMen.length,
     women: waitingWomen.length,
-    required: 1, // Mostramos que se necesita 1 de cada uno
-    isGateOpen: true // Siempre "abierto"
+    total: totalHistoricalUsers, // Nuevo contador total
+    isGateOpen: true 
   });
+};
+
+const getAreaFromIP = (socket) => {
+  // En producción (Render/Cloud), la IP real suele venir en x-forwarded-for
+  const ip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+  // Por ahora, como es un experimento local/regional, usaremos una etiqueta genérica
+  // o podrías integrar un servicio de GeoIP aquí. 
+  // Para el "toque picante", diremos "Zona detectada"
+  return "Área Quindío"; // O "Colombia" o "Latam" según prefieras
 };
 
 const joinQueue = (socket, userId, gender, io, targetUserId = null) => {
@@ -21,7 +29,13 @@ const joinQueue = (socket, userId, gender, io, targetUserId = null) => {
   waitingMen = waitingMen.filter(u => u.userId !== userId);
   waitingWomen = waitingWomen.filter(u => u.userId !== userId);
 
-  const userObj = { socket, userId, gender, targetUserId };
+  const userObj = { 
+    socket, 
+    userId, 
+    gender, 
+    targetUserId,
+    area: getAreaFromIP(socket)
+  };
 
   if (gender === 'male') {
     waitingMen.push(userObj);
@@ -29,7 +43,8 @@ const joinQueue = (socket, userId, gender, io, targetUserId = null) => {
     waitingWomen.push(userObj);
   }
 
-  console.log(`[Matchmaker] + ${userId} (${gender}) entró a la cola. Objetivo: ${targetUserId || 'Ninguno'}`);
+  totalHistoricalUsers++; // Incrementar contador total
+  console.log(`[Matchmaker] + ${userId} (${gender}) desde ${userObj.area}. Total: ${totalHistoricalUsers}`);
   
   // Primero intentamos emparejar
   attemptMatch(io);
@@ -88,8 +103,8 @@ const executeMatch = (user1, user2, io) => {
   console.log(`[Matchmaker] MATCH: ${user1.userId} ❤️ ${user2.userId} -> ${roomId}`);
   createRoom(roomId, user1.userId, user2.userId);
 
-  user1.socket.emit('match_found', { roomId, partnerGender: user2.gender });
-  user2.socket.emit('match_found', { roomId, partnerGender: user1.gender });
+  user1.socket.emit('match_found', { roomId, partnerGender: user2.gender, partnerArea: user2.area });
+  user2.socket.emit('match_found', { roomId, partnerGender: user1.gender, partnerArea: user1.area });
 };
 
 const leaveQueue = (userId, io) => {
