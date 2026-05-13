@@ -5,7 +5,7 @@ const { createRoom } = require('./chatEngine');
 let waitingMen = [];
 let waitingWomen = [];
 
-const REQUIRED_MASS = 50; // Masa crítica para iniciar los emparejamientos
+const REQUIRED_MASS = 20; // Masa crítica para iniciar los emparejamientos
 
 const broadcastQueueStatus = (io) => {
   io.emit('queue_status', {
