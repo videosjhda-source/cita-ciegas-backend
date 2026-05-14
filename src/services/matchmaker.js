@@ -77,22 +77,30 @@ const attemptMatch = (io) => {
     }
   }
 
-  // 2. EMPAREJAMIENTO NORMAL POR GÉNERO
-  while (waitingMen.length > 0 && waitingWomen.length > 0) {
-    const man = waitingMen.shift();
-    const woman = waitingWomen.shift();
+    // 2. EMPAREJAMIENTO NORMAL POR GÉNERO
+    // Solo emparejamos a quienes NO tienen un targetUserId (o que ya pasaron la fase directa)
+    const availableMen = waitingMen.filter(u => !u.targetUserId);
+    const availableWomen = waitingWomen.filter(u => !u.targetUserId);
 
-    if (!man.socket.connected) {
-      waitingWomen.unshift(woman);
-      continue;
-    }
-    if (!woman.socket.connected) {
-      waitingMen.unshift(man);
-      continue;
-    }
+    while (availableMen.length > 0 && availableWomen.length > 0) {
+      const man = availableMen.shift();
+      const woman = availableWomen.shift();
 
-    executeMatch(man, woman, io);
-  }
+      // Remover de las colas reales
+      waitingMen = waitingMen.filter(u => u.userId !== man.userId);
+      waitingWomen = waitingWomen.filter(u => u.userId !== woman.userId);
+
+      if (!man.socket.connected) {
+        waitingWomen.unshift(woman); // Devolver a la mujer si el hombre se desconectó
+        continue;
+      }
+      if (!woman.socket.connected) {
+        waitingMen.unshift(man); // Devolver al hombre si la mujer se desconectó
+        continue;
+      }
+
+      executeMatch(man, woman, io);
+    }
 };
 
 const executeMatch = (user1, user2, io) => {
