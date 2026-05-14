@@ -3,36 +3,42 @@ const activeRooms = new Map();
 // { id, user1, user2, phase: 1, timer: 300, intervalId: null, decisions: {} }
 
 const createRoom = (roomId, user1, user2) => {
+  console.log(`[ChatEngine] Creando sala ${roomId} para ${user1} y ${user2}`);
   const room = {
     id: roomId,
     user1,
     user2,
     phase: 1,
-    timer: 300, // 5 minutos iniciales
-    decisions: {}, // { userId: 'continue' | 'pass' }
-    intervalId: null
+    timer: 300, 
+    decisions: {}, 
+    intervalId: null,
+    connectedUsers: new Set()
   };
   activeRooms.set(roomId, room);
 };
 
 const initChatEvents = (socket, io, userId) => {
   socket.on('join_room', ({ roomId }) => {
-    socket.join(roomId);
-    
     const room = activeRooms.get(roomId);
-    if (!room) return;
+    if (!room) {
+      console.log(`[ChatEngine] Intento de unión a sala inexistente: ${roomId}`);
+      return;
+    }
 
+    socket.join(roomId);
+    room.connectedUsers.add(userId);
+    console.log(`[ChatEngine] Usuario ${userId} unido a sala ${roomId}. Miembros: ${room.connectedUsers.size}`);
+    
     // Si el timer no ha iniciado para esta sala, lo iniciamos
     if (!room.intervalId) {
+      console.log(`[ChatEngine] Iniciando temporizador para sala ${roomId}`);
       room.intervalId = setInterval(() => {
         room.timer -= 1;
         io.to(roomId).emit('timer_update', room.timer);
 
-        // Disparadores de tiempo
-        if (room.timer === 0) {
+        if (room.timer <= 0) {
           handlePhaseEnd(roomId, io);
         } else if (room.phase === 2 && room.timer % 60 === 0) {
-          // Cada minuto en fase 2 mandamos una pregunta aleatoria
           sendDeepQuestion(roomId, io);
         }
       }, 1000);
@@ -80,12 +86,21 @@ const initChatEvents = (socket, io, userId) => {
   });
 
   socket.on('disconnecting', () => {
-    // Notificar a las salas donde estaba conectado
+    const { isQueue } = socket.handshake.auth;
+    
     for (const roomId of socket.rooms) {
-      if (activeRooms.has(roomId)) {
-        socket.to(roomId).emit('partner_disconnected');
-        clearInterval(activeRooms.get(roomId).intervalId);
-        activeRooms.delete(roomId);
+      const room = activeRooms.get(roomId);
+      if (room) {
+        // IMPORTANTE: Solo disolver la sala si NO es una conexión de cola
+        // o si ya estaban en fase de chat activo.
+        if (!isQueue) {
+          console.log(`[ChatEngine] Usuario ${userId} salió del chat. Disolviendo sala ${roomId}`);
+          socket.to(roomId).emit('partner_disconnected');
+          if (room.intervalId) clearInterval(room.intervalId);
+          activeRooms.delete(roomId);
+        } else {
+          console.log(`[ChatEngine] Desconexión de socket de cola para ${userId} (ignorando disolución de sala)`);
+        }
       }
     }
   });

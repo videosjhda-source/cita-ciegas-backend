@@ -44,12 +44,13 @@ const joinQueue = (socket, userId, gender, io, targetUserId = null) => {
   }
 
   totalHistoricalUsers++; // Incrementar contador total
-  console.log(`[Matchmaker] + ${userId} (${gender}) desde ${userObj.area}. Total: ${totalHistoricalUsers}`);
+  console.log(`[Matchmaker] + ${userId} (${gender}) desde ${userObj.area}.`);
   
-  // Primero intentamos emparejar
-  attemptMatch(io);
-  // Luego informamos el estado
+  // Primero informamos el estado actual a todos (incluyendo al nuevo)
   broadcastQueueStatus(io);
+  
+  // Luego intentamos emparejar
+  setTimeout(() => attemptMatch(io), 500); 
 };
 
 const attemptMatch = (io) => {
@@ -105,14 +106,29 @@ const attemptMatch = (io) => {
 
 const executeMatch = (user1, user2, io) => {
   const roomId = uuidv4();
-  user1.socket.join(roomId);
-  user2.socket.join(roomId);
+  // ELIMINADO: user1.socket.join(roomId); 
+  // ELIMINADO: user2.socket.join(roomId);
+  // Los sockets se unirán en ChatRoom con su nueva conexión.
 
-  console.log(`[Matchmaker] MATCH: ${user1.userId} ❤️ ${user2.userId} -> ${roomId}`);
+  console.log(`[Matchmaker] !!! MATCH ENCONTRADO: ${user1.userId} ❤️ ${user2.userId} -> Room: ${roomId}`);
   createRoom(roomId, user1.userId, user2.userId);
 
-  user1.socket.emit('match_found', { roomId, partnerGender: user2.gender, partnerArea: user2.area, partnerUserId: user2.userId });
-  user2.socket.emit('match_found', { roomId, partnerGender: user1.gender, partnerArea: user1.area, partnerUserId: user1.userId });
+  user1.socket.emit('match_found', { 
+    roomId, 
+    partnerGender: user2.gender, 
+    partnerArea: user2.area, 
+    partnerUserId: user2.userId 
+  });
+  
+  user2.socket.emit('match_found', { 
+    roomId, 
+    partnerGender: user1.gender, 
+    partnerArea: user1.area, 
+    partnerUserId: user1.userId 
+  });
+  
+  // Actualizar estado después del match
+  broadcastQueueStatus(io);
 };
 
 const leaveQueue = (userId, io) => {

@@ -45,7 +45,13 @@ io.on('connection', (socket) => {
   });
 });
 
+app.get('/health', (req, res) => {
+  res.send({ status: 'active', timestamp: new Date() });
+});
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`[Server] Servidor Cita a Ciegas corriendo en el puerto ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Server] !!! Cita a Ciegas ONLINE !!!`);
+  console.log(`[Server] Puerto: ${PORT}`);
+  console.log(`[Server] CORS: Permitiendo todo (*)`);
 });
